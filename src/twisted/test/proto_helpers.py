@@ -10,6 +10,7 @@ from __future__ import division, absolute_import
 
 from socket import AF_INET, AF_INET6
 from io import BytesIO
+from collections import Sequence
 
 from zope.interface import implementer, implementedBy
 from zope.interface.verify import verifyClass
@@ -29,6 +30,7 @@ from twisted.internet import protocol, error, address, task
 
 from twisted.internet.task import Clock
 from twisted.internet.address import IPv4Address, UNIXAddress, IPv6Address
+from twisted.logger import ILogObserver
 
 
 class AccumulatingProtocol(protocol.Protocol):
@@ -925,3 +927,42 @@ def waitUntilAllDisconnected(reactor, protocols):
     lc = task.LoopingCall(_check)
     lc.clock = reactor
     return lc.start(0.01, now=True)
+
+
+
+@implementer(ILogObserver)
+class EventLoggingObserver(Sequence):
+    """
+    L{ILogObserver} That stores its events in a list for later inspection.
+    This class is similar to L{LimitedHistoryLogObserver} save that the
+    internal buffer is public and intended for external inspection.  The
+    observer implements the sequence protocol to ease iteration of the events.
+
+    @ivar _events: The events captured by this observer
+    @type _events: C{list}
+    """
+    def __init__(self):
+        self._events = []
+
+
+    def __len__(self):
+        return len(self._events)
+
+
+    def __getitem__(self, index):
+        return self._events[index]
+
+
+    def __contains__(self, value):
+        return value in self._events
+
+
+    def __iter__(self):
+        return iter(self._events)
+
+
+    def __call__(self, event):
+        """
+        @see: L{ILogObserver}
+        """
+        self._events.append(event)
