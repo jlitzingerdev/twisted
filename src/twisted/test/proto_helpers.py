@@ -966,3 +966,25 @@ class EventLoggingObserver(Sequence):
         @see: L{ILogObserver}
         """
         self._events.append(event)
+
+
+    @classmethod
+    def createWithCleanup(cls, testInstance, publisher):
+        """
+        Create an L{EventLoggingObserver} instance that observes the provided
+        publisher and will be cleaned up with addCleanup().
+
+        @param testInstance: Test instance in which this logger is used.
+        @type testInstance: L{twisted.trial.unittest.TestCase}
+
+        @param publisher: Log publisher to observe.
+        @type publisher: twisted.logger.LogPublisher
+
+        @return: An EventLoggingObserver configured to observe the provided
+            publisher.
+        @rtype: L{twisted.test.proto_helpers.EventLoggingObserver}
+        """
+        obs = cls()
+        publisher.addObserver(obs)
+        testInstance.addCleanup(lambda: publisher.removeObserver(obs))
+        return obs
