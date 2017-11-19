@@ -93,8 +93,6 @@ from twisted.python.compat import (
     _PY3, long, unicode, intToBytes, networkString, nativeString)
 from twisted.python.deprecate import deprecated
 from twisted.python import log
-from twisted.logger import Logger
-from twisted.python.failure import Failure
 from incremental import Version
 from twisted.python.components import proxyForInterface
 from twisted.internet import interfaces, protocol, address
@@ -680,9 +678,6 @@ class Request:
         which this request was received is closed and which is C{True} after
         that.
     @type _disconnected: C{bool}
-
-    @ivar _log: A logger instance for request related messages.
-    @type _log: L{twisted.logger.Logger}
     """
     producer = None
     finished = 0
@@ -701,7 +696,6 @@ class Request:
     content = None
     _forceSSL = 0
     _disconnected = False
-    _log = Logger()
 
     def __init__(self, channel, queued=_QUEUED_SENTINEL):
         """
@@ -728,14 +722,7 @@ class Request:
         Called when have finished responding and are no longer queued.
         """
         if self.producer:
-            self._log.failure(
-                '',
-                Failure(
-                    RuntimeError(
-                        "Producer was not unregistered for %s" % (self.uri,)
-                    )
-                )
-            )
+            log.err(RuntimeError("Producer was not unregistered for %s" % self.uri))
             self.unregisterProducer()
         self.channel.requestDone(self)
         del self.channel
@@ -1055,10 +1042,8 @@ class Request:
 
             if self.lastModified is not None:
                 if self.responseHeaders.hasHeader(b'last-modified'):
-                    self._log.info(
-                        "Warning: last-modified specified both in"
-                        " header list and lastModified attribute."
-                    )
+                    log.msg("Warning: last-modified specified both in"
+                            " header list and lastModified attribute.")
                 else:
                     self.responseHeaders.setRawHeaders(
                         b'last-modified',
@@ -1419,7 +1404,7 @@ class Request:
         except (binascii.Error, ValueError):
             self.user = self.password = ""
         except:
-            self._log.failure('')
+            log.err()
             self.user = self.password = ""
 
 
@@ -1949,7 +1934,6 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin):
     _waitingForTransport = False
     _abortingCall = None
     _optimisticEagerReadSize = 0x4000
-    _log = Logger()
 
     def __init__(self):
         # the request queue
@@ -2234,10 +2218,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin):
 
 
     def timeoutConnection(self):
-        self._log.info(
-            "Timing out client: {peer}",
-            peer=str(self.transport.getPeer())
-        )
+        log.msg("Timing out client: %s" % str(self.transport.getPeer()))
         if self.abortTimeout is not None:
             # We use self.callLater because that's what TimeoutMixin does.
             self._abortingCall = self.callLater(
@@ -2253,9 +2234,8 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin):
         on extremely bad connections or when clients are maliciously attempting
         to keep connections open.
         """
-        self._log.info(
-            "Forcibly timing out client: {peer}",
-            peer=str(self.transport.getPeer())
+        log.msg(
+            "Forcibly timing out client: %s" % (str(self.transport.getPeer()),)
         )
         # We want to lose track of the _abortingCall so that no-one tries to
         # cancel it.

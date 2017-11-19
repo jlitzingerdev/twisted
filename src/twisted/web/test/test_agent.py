@@ -20,8 +20,7 @@ from twisted.internet import defer, task
 from twisted.python.failure import Failure
 from twisted.python.compat import cookielib, intToBytes
 from twisted.python.components import proxyForInterface
-from twisted.test.proto_helpers import (StringTransport, MemoryReactorClock,
-                                        EventLoggingObserver)
+from twisted.test.proto_helpers import StringTransport, MemoryReactorClock
 from twisted.internet.task import Clock
 from twisted.internet.error import ConnectionRefusedError, ConnectionDone
 from twisted.internet.error import ConnectionLost
@@ -51,7 +50,6 @@ from twisted.test.proto_helpers import AccumulatingProtocol
 from twisted.test.iosim import IOPump, FakeTransport
 from twisted.test.test_sslverify import certificatesForAuthorityAndServer
 from twisted.web.error import SchemeNotSupported
-from twisted.logger import globalLogPublisher
 
 try:
     from twisted.internet import ssl
@@ -624,25 +622,14 @@ class HTTPConnectionPoolTests(TestCase, FakeReactorAndConnectMixin):
         # By default state is QUIESCENT
         self.assertEqual(protocol.state, "QUIESCENT")
 
-        logObserver = EventLoggingObserver.createWithCleanup(
-            self,
-            globalLogPublisher
-        )
-
         protocol.state = "NOTQUIESCENT"
         self.pool._putConnection(("http", b"example.com", 80), protocol)
-        self.assertEquals(1, len(logObserver))
-
-        event = logObserver[0]
-        f = event["log_failure"]
-
-        self.assertIsInstance(f.value, RuntimeError)
+        exc, = self.flushLoggedErrors(RuntimeError)
         self.assertEqual(
-            f.getErrorMessage(),
+            exc.value.args[0],
             "BUG: Non-quiescent protocol added to connection pool.")
         self.assertIdentical(None, self.pool._connections.get(
                 ("http", b"example.com", 80)))
-        self.flushLoggedErrors(RuntimeError)
 
 
     def test_getUsesQuiescentCallback(self):
